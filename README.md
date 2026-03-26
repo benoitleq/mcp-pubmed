@@ -208,6 +208,45 @@ Claude ──MCP── main.py ──HTTPS── NCBI E-utilities API
 
 ---
 
+## MCP vs Skill — which approach to choose?
+
+There are two ways to give Claude access to PubMed:
+
+1. **This project** — an MCP server (Python process, explicit tools)
+2. **A Skill** — a Markdown prompt file that instructs Claude to call the NCBI API directly via its built-in `web_fetch` capability (see e.g. [pubmed-skill](https://github.com/masa061580/pubmed-skill))
+
+### Comparison
+
+| | MCP (this project) | Skill (prompt file) |
+|---|---|---|
+| **Setup** | Python 3.11 + venv + dependencies + config in `claude_desktop_config.json` | Copy one `.md` file — done |
+| **Maintenance** | Server process to start and keep running | Nothing to maintain |
+| **Portability** | Must be configured in every Claude client | Works anywhere Claude has web access |
+| **Reliability** | Deterministic — explicit retry logic, error handling, XML parsing | Depends on Claude's interpretation of the prompt |
+| **Power** | Full control: pagination, caching, auth, complex post-processing | Limited to what Claude can do in a single prompt turn |
+| **Sharing** | Distributable as a Python package or Docker image | Just share the `.md` file |
+| **Auditability** | Code is explicit, testable, versionable | Behavior may vary across Claude versions |
+
+### When to choose MCP
+
+- You need **guaranteed, reproducible behavior** on every call
+- You are building a tool for a **team or an application** (not just personal use)
+- You need **complex logic**: pagination, caching, structured output, authentication
+- You want to expose PubMed to **non-Claude clients** via the MCP standard
+
+### When to choose a Skill
+
+- **Personal use** in Claude Desktop or Claude Code — you just want it to work
+- You want **zero friction**: no installation, no configuration, no process to manage
+- The task is occasional and correctness variations are acceptable
+
+### Bottom line
+
+> For solo use, a Skill is simpler and good enough.
+> For production, teams, or complex workflows, MCP is more robust.
+
+---
+
 ## Troubleshooting
 
 **"No module named mcp"**
