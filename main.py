@@ -70,9 +70,9 @@ async def _get(endpoint: str, params: dict) -> httpx.Response:
     url = f"{NCBI_BASE_URL}/{endpoint}"
     last_error: Exception = RuntimeError("Unknown error")
 
-    for attempt in range(1, MAX_RETRIES + 1):
-        try:
-            async with httpx.AsyncClient(timeout=30.0) as client:
+    async with httpx.AsyncClient(timeout=30.0) as client:
+        for attempt in range(1, MAX_RETRIES + 1):
+            try:
                 response = await client.get(url, params=params)
 
                 # Rate-limited: back off and retry
@@ -111,21 +111,21 @@ async def _get(endpoint: str, params: dict) -> httpx.Response:
 
                 return response
 
-        except httpx.TimeoutException:
-            last_error = PubMedError(
-                f"Request timed out (attempt {attempt}/{MAX_RETRIES}). "
-                f"NCBI may be slow — try again later."
-            )
-            await asyncio.sleep(RETRY_DELAY * attempt)
+            except httpx.TimeoutException:
+                last_error = PubMedError(
+                    f"Request timed out (attempt {attempt}/{MAX_RETRIES}). "
+                    f"NCBI may be slow — try again later."
+                )
+                await asyncio.sleep(RETRY_DELAY * attempt)
 
-        except httpx.ConnectError:
-            last_error = PubMedError(
-                "Could not connect to NCBI. Check your internet connection."
-            )
-            await asyncio.sleep(RETRY_DELAY * attempt)
+            except httpx.ConnectError:
+                last_error = PubMedError(
+                    "Could not connect to NCBI. Check your internet connection."
+                )
+                await asyncio.sleep(RETRY_DELAY * attempt)
 
-        except PubMedError:
-            raise  # Already formatted — propagate immediately
+            except PubMedError:
+                raise  # Already formatted — propagate immediately
 
     raise last_error
 
@@ -145,14 +145,14 @@ def _parse_article(article_xml: ET.Element) -> dict:
     art: dict = {}
 
     # PMID
-    el = article_xml.find(".//PMID")
-    if el is not None:
-        art["pmid"] = el.text
+    pmid = article_xml.findtext(".//PMID")
+    if pmid:
+        art["pmid"] = pmid
 
     # Title
-    el = article_xml.find(".//ArticleTitle")
-    if el is not None:
-        art["title"] = "".join(el.itertext()).strip()
+    title_el = article_xml.find(".//ArticleTitle")
+    if title_el is not None:
+        art["title"] = "".join(title_el.itertext()).strip()
 
     # Abstract (structured or plain)
     abstract_texts = article_xml.findall(".//AbstractText")
@@ -179,9 +179,9 @@ def _parse_article(article_xml: ET.Element) -> dict:
     art["authors"] = authors
 
     # Journal
-    el = article_xml.find(".//Journal/Title")
-    if el is not None:
-        art["journal"] = el.text
+    journal = article_xml.findtext(".//Journal/Title")
+    if journal:
+        art["journal"] = journal
 
     # Publication date
     pub_date_el = article_xml.find(".//PubDate")
@@ -471,11 +471,11 @@ async def get_full_text(pmid: str) -> str:
         if article_xml is None:
             return _err(f"No article found for PMID {pmid}.")
 
-        pmc_id: Optional[str] = None
-        for id_el in article_xml.findall(".//ArticleId"):
-            if id_el.get("IdType") == "pmc" and id_el.text:
-                pmc_id = id_el.text.strip()
-                break
+        pmc_id: Optional[str] = next(
+            (id_el.text.strip() for id_el in article_xml.findall(".//ArticleId")
+             if id_el.get("IdType") == "pmc" and id_el.text),
+            None,
+        )
 
         if not pmc_id:
             title_el = article_xml.find(".//ArticleTitle")
