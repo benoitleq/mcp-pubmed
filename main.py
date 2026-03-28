@@ -642,7 +642,7 @@ async def search_by_author(
         return _err("Author name must not be empty.")
 
     return await search_pubmed(
-        query=f"{author.strip()}[author]",
+        query=f'"{author.strip()}"[author]',
         max_results=max_results,
         year_from=year_from,
         year_to=year_to,
